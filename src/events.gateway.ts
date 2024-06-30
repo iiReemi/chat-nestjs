@@ -31,7 +31,9 @@ type NewParticipant = {
 
 @WebSocketGateway({
   cors: {
-    origin: '*',
+    origin: '*', // Permite todas as origens, você pode especificar a URL do cliente para maior segurança
+    methods: ['GET', 'POST'], // Permite apenas métodos GET e POST
+    credentials: true, // Se necessário, permite cookies
   },
 })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
