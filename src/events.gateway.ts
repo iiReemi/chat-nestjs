@@ -1,26 +1,37 @@
 import {
+  ConnectedSocket,
   MessageBody,
+  OnGatewayConnection,
+  OnGatewayDisconnect,
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
-  OnGatewayConnection,
-  OnGatewayDisconnect,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 
 type Message = {
+  id: string;
   message: string;
   sender: string;
   date: string;
   room: string;
+  type: 'text' | 'audio' | 'media';
+};
+
+type UserAction = {
+  room: string;
+  name: string;
+  type: 'text' | 'audio';
+};
+
+type NewParticipant = {
+  room: string;
+  name: string;
 };
 
 @WebSocketGateway({
   cors: {
-    origin: 'http://localhost:3001', // Substitua pelo seu front-end URL
-    methods: ['GET', 'POST'],
-    allowedHeaders: ['my-custom-header'],
-    credentials: true,
+    origin: '*',
   },
 })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -31,7 +42,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     console.log(`Client connected: ${client.id}`);
 
     client.on('join', (room: string) => {
-      // console.log(`Client join in room ${room}`);
       client.join(room);
     });
 
@@ -42,7 +52,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
           client.leave(room);
         }
       });
-      // console.log(`Client ${client.id} left all rooms`);
     });
   }
 
@@ -51,7 +60,26 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('message')
-  handleMessage(@MessageBody() message: Message): void {
-    this.server.to(message.room).emit('message', message);
+  handleMessage(
+    @MessageBody() message: Message,
+    @ConnectedSocket() client: Socket,
+  ): void {
+    client.broadcast.to(message.room).emit('message', message);
+  }
+
+  @SubscribeMessage('user-action')
+  handleTyping(
+    @MessageBody() action: UserAction,
+    @ConnectedSocket() client: Socket,
+  ): void {
+    client.broadcast.to(action.room).emit('user-action', action);
+  }
+
+  @SubscribeMessage('new-participant')
+  handleNewParticipant(
+    @MessageBody() data: NewParticipant,
+    @ConnectedSocket() client: Socket,
+  ): void {
+    client.broadcast.to(data.room).emit('new-participant', data.name);
   }
 }
